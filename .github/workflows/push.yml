@@ -1,4 +1,4 @@
-name: 基金每日推送
+name: fund
 on:
   workflow_dispatch:
   schedule:
@@ -6,19 +6,14 @@ on:
     - cron: '0 6 * * *'
 
 jobs:
-  push:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: 推送基金数据
-        env:
-          SCT_KEY: ${{ secrets.SCT_KEY }}
+      - name: Run
         run: |
-          # 发送推送
-          curl -s "https://sctapi.ftqq.com/${SCT_KEY}.send" \
-            -d "title=基金每日分析报告" \
+          curl -s "https://sctapi.ftqq.com/${{ secrets.SCT_KEY }}.send" \
+            -d "title=基金每日推送" \
             -d "desp=
-更新时间：2026-05-15
-
 013002 汇添富收益快钱货币C
 当前价格：1.0000 元
 最大回撤：0.01%
