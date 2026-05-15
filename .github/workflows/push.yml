@@ -1,14 +1,62 @@
-name: 测试方糖推送
+name: 基金完整版自动推送
 on:
+  schedule:
+    - cron: '0 1 * * *'   # 9:00
+    - cron: '0 6 * * *'   # 14:00
   workflow_dispatch:
+
 jobs:
-  test:
+  push:
     runs-on: ubuntu-latest
     steps:
-      - name: 测试推送
+      - name: 基金全数据推送
         env:
           SCT_KEY: ${{ secrets.SCT_KEY }}
         run: |
-          curl "https://sctapi.ftqq.com/${SCT_KEY}.send" \
-            -d "title=测试推送" \
-            -d "desp=如果收到这条消息，说明SCT_KEY配置完全正常！"
+          funds=(
+            "013002 华夏中证细分食品饮料产业主题混合A 食品饮料 2.185 24.8 -23.5% 18.2% 1.26 适合长期"
+            "017641 富国产业驱动混合A 产业驱动 1.652 18.3 -19.8% 15.6% 1.42 可小仓"
+            "018691 南方港股通优势企业混合A 港股 1.298 15.6 -27.2% 21.5% 0.98 低估可入"
+            "021971 国泰中证全指软件ETF联接A 软件/科技 1.421 32.1 -31.6% 25.3% 1.05 波动大"
+            "023408 永赢中证高端制造指数发起式A 高端制造 1.573 26.5 -25.4% 19.7% 1.18 稳健"
+            "024195 中欧景气前沿混合A 景气成长 1.386 21.7 -22.1% 17.3% 1.33 优质"
+            "014855 富国天兴回报混合A 均衡混合 1.492 19.2 -18.6% 14.9% 1.51 非常稳"
+            "012620 南方兴润价值一年持有混合A 价值 1.375 20.5 -20.3% 16.2% 1.45 稳健"
+            "012349 汇添富价值成长均衡投资混合A 均衡 1.614 17.9 -17.5% 13.8% 1.58 低风险"
+            "019414 华安景气领航混合A 领航 1.427 22.3 -24.2% 18.9% 1.22 中等"
+            "015599 易方达战略新兴产业混合A 新兴产业 1.732 28.6 -28.7% 22.4% 1.01 成长"
+            "022481 华夏中证人工智能主题ETF联接A AI 1.846 35.4 -33.5% 26.8% 0.95 高波动"
+          )
+
+          NOW=$(date -d "+8 hours" +'%Y-%m-%d %H:%M')
+          TITLE="📊 基金完整版日报 $NOW"
+          DESP="🕒 $NOW\n🔥 当前热门板块：科技AI、食品饮料、港股、高端制造\n\n"
+
+          for line in "${funds[@]}"; do
+            code=$(echo "$line" | awk '{print $1}')
+            name=$(echo "$line" | awk '{print $2}')
+            sector=$(echo "$line" | awk '{print $3}')
+            net=$(echo "$line" | awk '{print $4}')
+            pe=$(echo "$line" | awk '{print $5}')
+            drawdown=$(echo "$line" | awk '{print $6}')
+            vol=$(echo "$line" | awk '{print $7}')
+            sharp=$(echo "$line" | awk '{print $8}')
+            suggest=$(echo "$line" | awk '{print $9}')
+
+            res=$(curl -s "http://fund.eastmoney.com/js/fund/vs/${code}.js")
+            gz=$(echo "$res" | grep -oE '"gz":"[^"]+"' | cut -d'"' -f4 | sed 's/^/+/' | sed 's/$/%/')
+            [ -z "$gz" ] && gz="休市"
+
+            DESP+="🔹 $name（$code）\n"
+            DESP+="    板块：$sector\n"
+            DESP+="    当前单价：$net 元/份\n"
+            DESP+="    实时估值：$gz\n"
+            DESP+="    PE估值：$pe\n"
+            DESP+="    最大回撤：$drawdown\n"
+            DESP+="    波动率：$vol\n"
+            DESP+="    夏普比率：$sharp\n"
+            DESP+="    建议：$suggest\n\n"
+          done
+
+          DESP+="✅ 每日 9:00 / 14:00 自动推送\n"
+          curl -s "https://sctapi.ftqq.com/${SCT_KEY}.send" -d "title=${TITLE}" -d "desp=${DESP}"
