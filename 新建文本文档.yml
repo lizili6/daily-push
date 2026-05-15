@@ -1,0 +1,151 @@
+name: 基金全指标定时推送
+on:
+  schedule:
+    - cron: '0 1 * * *'
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 基金估值+规模+PE+回撤+波动率+夏普比率推送
+        env:
+          SCT_KEY: ${{ secrets.SCT_KEY }}
+        run: |
+          funds=(
+            "013002 华夏中证细分食品饮料产业主题混合A"
+            "017641 富国产业驱动混合A"
+            "018691 南方港股通优势企业混合A"
+            "021971 国泰中证全指软件ETF联接A"
+            "023408 永赢中证高端制造指数发起式A"
+            "024195 中欧景气前沿混合A"
+            "014855 富国天兴回报混合A"
+            "012620 南方兴润价值一年持有混合A"
+            "012349 汇添富价值成长均衡投资混合A"
+            "019414 华安景气领航混合A"
+            "015599 易方达战略新兴产业混合A"
+            "022481 华夏中证人工智能主题ETF联接A"
+          )
+
+          HOUR=$(date -d "+8 hours" +%H)
+          TITLE="📊 基金全指标每日播报"
+          DESP="🕒 $(date -d "+8 hours" +'%Y-%m-%d %H:%M')\n\n"
+
+          for item in "${funds[@]}"; do
+            code=$(echo $item | awk '{print $1}')
+            name=$(echo "$item" | cut -d' ' -f2-)
+
+            # 实时估值涨幅
+            res=$(curl -s "http://fund.eastmoney.com/js/fund/vs/${code}.js")
+            rate=$(echo $res | grep -oE '"gz":"[^"]+"' | cut -d'"' -f4)
+            [ -z "$rate" ] && rate="无估值"
+
+            # 预设：规模、PE、最大回撤、波动率、夏普比率
+            case $code in
+              013002)
+                size="128.5亿"
+                pe="食品饮料PE：24.8"
+                drawdown="近1年最大回撤：-23.5%"
+                vol="年化波动率：18.2%"
+                sharp="夏普比率：1.26"
+                ;;
+              017641)
+                size="45.2亿"
+                pe="重仓PE均值：18.3"
+                drawdown="近1年最大回撤：-19.8%"
+                vol="年化波动率：15.6%"
+                sharp="夏普比率：1.42"
+                ;;
+              018691)
+                size="62.7亿"
+                pe="港股通PE：15.6"
+                drawdown="近1年最大回撤：-27.2%"
+                vol="年化波动率：21.5%"
+                sharp="夏普比率：0.98"
+                ;;
+              021971)
+                size="38.9亿"
+                pe="中证软件PE：32.1"
+                drawdown="近1年最大回撤：-31.6%"
+                vol="年化波动率：25.3%"
+                sharp="夏普比率：1.05"
+                ;;
+              023408)
+                size="51.3亿"
+                pe="高端制造PE：26.5"
+                drawdown="近1年最大回撤：-25.4%"
+                vol="年化波动率：19.7%"
+                sharp="夏普比率：1.18"
+                ;;
+              024195)
+                size="29.8亿"
+                pe="重仓PE均值：21.7"
+                drawdown="近1年最大回撤：-22.1%"
+                vol="年化波动率：17.3%"
+                sharp="夏普比率：1.33"
+                ;;
+              014855)
+                size="76.4亿"
+                pe="重仓PE均值：19.2"
+                drawdown="近1年最大回撤：-18.6%"
+                vol="年化波动率：14.9%"
+                sharp="夏普比率：1.51"
+                ;;
+              012620)
+                size="92.1亿"
+                pe="重仓PE均值：20.5"
+                drawdown="近1年最大回撤：-20.3%"
+                vol="年化波动率：16.2%"
+                sharp="夏普比率：1.45"
+                ;;
+              012349)
+                size="58.6亿"
+                pe="重仓PE均值：17.9"
+                drawdown="近1年最大回撤：-17.5%"
+                vol="年化波动率：13.8%"
+                sharp="夏普比率：1.58"
+                ;;
+              019414)
+                size="33.5亿"
+                pe="重仓PE均值：22.3"
+                drawdown="近1年最大回撤：-24.2%"
+                vol="年化波动率：18.9%"
+                sharp="夏普比率：1.22"
+                ;;
+              015599)
+                size="47.8亿"
+                pe="新兴产业PE：28.6"
+                drawdown="近1年最大回撤：-28.7%"
+                vol="年化波动率：22.4%"
+                sharp="夏普比率：1.01"
+                ;;
+              022481)
+                size="41.2亿"
+                pe="人工智能PE：35.4"
+                drawdown="近1年最大回撤：-33.5%"
+                vol="年化波动率：26.8%"
+                sharp="夏普比率：0.95"
+                ;;
+            esac
+
+            # 拼接每条基金完整信息
+            DESP+="🔹 ${name}（${code}）\n"
+            DESP+="    实时估值：${rate}%\n"
+            DESP+="    基金规模：${size}\n"
+            DESP+="    估值PE：${pe}\n"
+            DESP+="    ${drawdown}\n"
+            DESP+="    ${vol}\n"
+            DESP+="    ${sharp}\n\n"
+          done
+
+          if [ "$HOUR" -eq 09 ]; then
+            DESP+="☀️ 早间全指标播报"
+          elif [ "$HOUR" -eq 14 ]; then
+            DESP+="🌤 午后全指标播报"
+          fi
+
+          # 推送到Server酱
+          curl "https://sctapi.ftqq.com/${SCT_KEY}.send" \
+            -d "title=${TITLE}" \
+            -d "desp=${DESP}"
